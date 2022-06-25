@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+import pickle
 import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from sklearn import datasets
@@ -45,33 +46,9 @@ pred_cv = model.predict(x_cv)
 print(accuracy_score(y_cv, pred_cv))
 
 pred_train = model.predict(x_train)
-print(accuracy_score(y_train,pred_train))
+print(accuracy_score(y_train, pred_train))
 
-#  Streamlit
+pickle_out = open('classifier.pkl', mode='wb')
+pickle.dump(model, pickle_out)
+pickle_out.close()
 
-def prediction(Gender, Married, ApplicantIncome, LoanAmount, Credit_History):
-    if Gender == "Male":
-        Gender = 0
-    else:
-        Gender = 1
-
-    if Married == "Unmarried":
-        Married = 0
-    else:
-        Married = 1
-
-    if Credit_History == "Unclear Debts":
-        Credit_History = 0
-    else:
-        Credit_History = 1
-
-    LoanAmount = LoanAmount / 1000
-
-    prediction = classifier.predict(
-        [[Gender, Married, ApplicantIncome, LoanAmount, Credit_History]])
-
-    if prediction == 0:
-        pred = 'Rejected'
-    else:
-        pred = 'Approved'
-    return pred
