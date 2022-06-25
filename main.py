@@ -1,54 +1,107 @@
 import pandas as pd
-import streamlit as st
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-import pickle
-import matplotlib.pyplot as plt
-from sklearn.utils import shuffle
-from sklearn import datasets
-from sklearn.ensemble import RandomForestClassifier
 import numpy as np
-from joblib import dump, load
-
-st.title("Loan prediction")
-
-st.write("""
-        This website can be used to predict if a loan application gets
-        accepted or denied, using financial data as input, and a machine
-        learning model as a prediction tool.""")
+import os
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import pickle
 
 train_data = pd.read_csv("train.csv")  # Reads the necessary data.
 test_data = pd.read_csv("test.csv")
-# print(train_data.head())
 
-train_data['Gender'] = train_data['Gender'].map({'Male': 0, 'Female': 1})
-train_data['Married'] = train_data['Married'].map({'No': 0, 'Yes': 1})
-train_data['Loan_Status'] = train_data['Loan_Status'].map({'N': 0, 'Y': 1})
+train_data.Loan_Status = train_data.Loan_Status.map({'Y': 1, 'N': 0})  # Approval is 1 and rejection is 0
+
+#  print(train_data.head())
+#  print(train_data.describe())
 
 #  print(train_data.isnull().sum())
-print(test_data.isnull().sum())
 
-train_data = train_data.dropna()
-#  print(train_data.isnull().sum())
+Loan_Status = train_data.Loan_Status
+train_data.drop('Loan_Status', axis=1, inplace=True)
+Loan_ID = test_data.Loan_ID
+data = train_data.append(test_data)
+#  print(data.head())
+#  print(data.shape)
+#  print(data.describe())
 
-#  Seperating the dependent (Loan_Status) and the independent variables.
+#  print(data.isnull().sum())
 
-X = train_data[['Gender', 'Married', 'ApplicantIncome', 'LoanAmount', 'Credit_History']]
-y = train_data.Loan_Status
-print(X.shape, y.shape)
+data.Gender = data.Gender.map({'Male':1, 'Female':0})  # Preparing data to make prediction model
+#  print(data.Gender.value_counts())
+data.Married = data.Married.map({'Yes':1, 'No':0})
+#  print(data.Married.value_counts())
+data.Dependents = data.Dependents.map({'0': 0, '1': 1, '2': 2, '3+': 3})
+#  print(data.Dependents.value_counts())
+data.Education = data.Education.map({'Graduate': 1, 'Not Graduate': 0})
+#  print(data.Education.value_counts())
+data.Self_Employed = data.Self_Employed.map({'Yes':1, 'No': 0})
+#  print(data.Self_Employed.value_counts())
+data.Property_Area = data.Property_Area.map({'Urban':2, 'Semiurban': 1, 'Rural': 0})
+print(data.Property_Area.value_counts())
 
-x_train, x_cv, y_train, y_cv = train_test_split(X,y, test_size=0.2, random_state=10)
+#  Filling missing values
 
-model = RandomForestClassifier(max_depth=4, random_state=10)
-model.fit(x_train, y_train)
+data.Credit_History.fillna(1, inplace=True)
+data.Married.fillna(1, inplace=True)
+data.LoanAmount.fillna(data.LoanAmount.median(), inplace=True)
+data.Loan_Amount_Term.fillna(data.Loan_Amount_Term.mean(), inplace=True)
+data.Gender.fillna(1, inplace=True)
+data.Dependents.fillna(0, inplace=True)
+data.Self_Employed.fillna(0, inplace=True)
 
-pred_cv = model.predict(x_cv)
-print(accuracy_score(y_cv, pred_cv))
+#  print(data.isnull().sum())
 
-pred_train = model.predict(x_train)
-print(accuracy_score(y_train, pred_train))
+data.drop('Loan_ID', inplace=True, axis=1)  # No need for the Loan_ID data
 
-pickle_out = open('classifier.pkl', mode='wb')
-pickle.dump(model, pickle_out)
-pickle_out.close()
+#  Splitting the data into training and testing
+
+train_X = data.iloc[:614, ]  # all the data in the train set
+train_y = Loan_Status
+
+train_X, test_X, train_y, test_y = train_test_split(train_X, train_y, random_state=0)
+
+#  print(train_X.head())
+
+models = []
+models.append(('Logistic Regression', LogisticRegression()))
+models.append(('Decision Tree', DecisionTreeClassifier()))
+models.append(('Linear Discrimant Analysis', LinearDiscriminantAnalysis()))
+models.append(('Random Forest', RandomForestClassifier()))
+models.append(('Support Vector Classifier', SVC()))
+models.append(('K- Neirest Neighbour', KNeighborsClassifier()))
+models.append(('Naive Bayes', GaussianNB()))
+
+scoring = 'accuracy'
+result = []
+names = []
+
+for name, model in models:
+    kfold = KFold(n_splits=10)
+    cv_result = cross_val_score(model, train_X, train_y, cv=kfold, scoring=scoring)
+    result.append(cv_result)
+    names.append(name)
+    print(model)
+    print('%s %f' % (name, cv_result.mean()))
+
+LR = LogisticRegression()
+LR.fit(train_X, train_y)
+pred = LR.predict(test_X)
+print('Model Accuracy:- ', accuracy_score(test_y, pred))
+print(confusion_matrix(test_y, pred))
+print(classification_report(test_y, pred))
+
+#  Saves file as pickle
+file = './Model/ML_Model1.pkl'
+with open(file, 'wb') as f:
+    pickle.dump(f)
+
+
 
